@@ -38,7 +38,7 @@ serve(async (req: Request) => {
       return new Response("No Chat ID", { headers: corsHeaders, status: 200 })
     }
 
-    const telegramToken = Deno.env.get("TELEGRAM_TOKEN")
+    const telegramToken = "8601740463:AAFZWZbWs4LGkyuKtv7svM_cJHCli7O9aTg"
 
     // CLEAR അല്ലെങ്കിൽ /start വന്നാൽ നേരിട്ട് മെനു അയക്കുക (ജെമിനിയെ വിളിച്ച് സമയം കളയേണ്ട)
     if (userInput.toUpperCase() === "CLEAR" || userInput === "/start") {
