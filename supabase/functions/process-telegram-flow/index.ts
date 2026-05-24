@@ -12,12 +12,8 @@ serve(async (req: Request) => {
   }
 
   try {
-    if (!req.body) {
-      return new Response("Empty body", { headers: corsHeaders, status: 200 })
-    }
-
     const update = await req.json()
-    console.log("📥 Received Update:", JSON.stringify(update))
+    console.log("📥 Incoming Telegram Update:", JSON.stringify(update))
 
     let chatId: number | null = null
     let userInput = ""
@@ -38,16 +34,18 @@ serve(async (req: Request) => {
       return new Response("No Chat ID", { headers: corsHeaders, status: 200 })
     }
 
-    // 🔑 FIXED TELEGRAM TOKEN
+    // 🔑 HARDCODED TOKENS (For absolute stability)
     const telegramToken = "8601740463:AAFZWZbWs4LGkyuKtv7svM_cJHCli7O9aTg"
-    const geminiKey = Deno.env.get("GEMINI_API_KEY")
+    
+    // ⚠️ ശ്രദ്ധിക്കുക: നിങ്ങളുടെ ശരിക്കുമുള്ള Gemini API Key താഴെ നൽകുക
+    const geminiKey = "AIzaSyCHovri8-gQosLqCpPqLcecBTWOfV0dE7k" 
 
     if (userInput.toUpperCase() === "CLEAR" || userInput === "/start") {
       await sendTelegramMenu(chatId, telegramToken, "📌 **MAIN MENU**\n\nSelect an operations pipeline below:")
       return new Response("OK", { headers: corsHeaders, status: 200 })
     }
 
-    // 🤖 GEMINI AI CALLING
+    // 🤖 GEMINI PROMPT
     const systemInstruction = `
       You are the absolute controller of an Enterprise Operations Bot.
       Drive the conversation, parse English/Malayalam, and decide if PENDING or COMPLETED.
@@ -78,6 +76,11 @@ serve(async (req: Request) => {
     )
 
     const geminiData = await geminiRes.json()
+    
+    if (!geminiData.candidates || geminiData.candidates.length === 0) {
+      throw new Error("Gemini API Error: No Response")
+    }
+
     const aiRaw = geminiData.candidates[0].content.parts[0].text.trim()
     const ui = JSON.parse(aiRaw)
 
@@ -90,7 +93,7 @@ serve(async (req: Request) => {
     return new Response("OK", { headers: corsHeaders, status: 200 })
 
   } catch (err) {
-    console.error("🚨 Core Error:", err)
+    console.error("🚨 Critical Bot Error:", err)
     return new Response(JSON.stringify({ error: err.message }), {
       headers: corsHeaders,
       status: 200
