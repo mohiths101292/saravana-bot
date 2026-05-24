@@ -19,6 +19,8 @@ jobs:
           version: latest
 
       - name: Deploy Function
-        run: npx supabase functions deploy process-telegram-flow --project-ref nkoetzfiorwldqknttvx --no-verify-jwt
+        run: |
+          supabase functions deploy process-telegram-flow --project-ref nkoetzfiorwldqknttvx --no-verify-jwt
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # 🔑 സുപബേസ് ആക്സസ് ടോക്കൺ നേരിട്ട് ഇവിടെ നൽകുന്നു
+          SUPABASE_ACCESS_TOKEN: sbp_7ccbdae8dfa44ce41d9bde46211a239bad1bd13c
