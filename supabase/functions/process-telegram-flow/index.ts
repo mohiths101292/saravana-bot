@@ -11,55 +11,68 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders, status: 200 })
   }
 
-  try {
-    const update = await req.json()
-    console.log("📥 Incoming Telegram Update:", JSON.stringify(update))
+  // 🔑 TOKENS
+  const telegramToken = "8601740463:AAFZWZbWs4LGkyuKtv7svM_cJHCli7O9aTg"
+  const geminiKey = "AIzaSyYourActualGeminiKeyGoesHere" // നിങ്ങളുടെ ശരിക്കുമുള്ള Gemini API Key ഇവിടെ നൽകുക
 
+  try {
+    const rawBody = await req.text()
+    console.log("📥 Raw Payload Received:", rawBody)
+
+    if (!rawBody || rawBody.trim() === "") {
+      return new Response("Empty Body", { headers: corsHeaders, status: 200 })
+    }
+
+    let update: any = {}
     let chatId: number | null = null
     let userInput = ""
 
-    if (update.message) {
-      chatId = update.message.chat.id
-      if (update.message.voice) {
-        userInput = `[AUDIO_NOTE_ID]: ${update.message.voice.file_id}`
-      } else {
-        userInput = update.message.text || ""
+    // ടെക്സ്റ്റ് മെസ്സേജാണോ JSON ആണോ എന്ന് പരിശോധിക്കുന്നു
+    if (rawBody.trim().startsWith("CLEAR") || rawBody.trim().startsWith("/start") || rawBody.trim().toUpperCase() === "CLEAR") {
+      userInput = rawBody.trim()
+      // വെബ്ഹൂക്ക് വഴിയുള്ള ചാറ്റ് ഐഡി മിസ്സിംഗ് ഒഴിവാക്കാൻ നിങ്ങളുടെ ടെലിഗ്രാം ചാറ്റ് ഐഡി ഇവിടെ ഡിഫോൾട്ടായി നൽകുന്നു
+      chatId = 2084172371 
+    } else {
+      try {
+        update = JSON.parse(rawBody)
+        if (update.message) {
+          chatId = update.message.chat.id
+          if (update.message.voice) {
+            userInput = `[AUDIO_NOTE_ID]: ${update.message.voice.file_id}`
+          } else {
+            userInput = update.message.text || ""
+          }
+        } else if (update.callback_query) {
+          chatId = update.callback_query.message.chat.id
+          userInput = update.callback_query.data || ""
+        }
+      } catch (pErr) {
+        // പ്ലെയിൻ ടെക്സ്റ്റ് മെസ്സേജുകൾ നേരിട്ട് എടുക്കുന്നു
+        userInput = rawBody
+        chatId = 2084172371
       }
-    } else if (update.callback_query) {
-      chatId = update.callback_query.message.chat.id
-      userInput = update.callback_query.data || ""
     }
 
     if (!chatId) {
+      console.log("⚠️ No valid Chat ID found in payload")
       return new Response("No Chat ID", { headers: corsHeaders, status: 200 })
     }
 
-    // 🔑 HARDCODED TOKENS (For absolute stability)
-    const telegramToken = "8601740463:AAFZWZbWs4LGkyuKtv7svM_cJHCli7O9aTg"
-    
-    // ⚠️ ശ്രദ്ധിക്കുക: നിങ്ങളുടെ ശരിക്കുമുള്ള Gemini API Key താഴെ നൽകുക
-    const geminiKey = "AIzaSyCHovri8-gQosLqCpPqLcecBTWOfV0dE7k" 
-
+    // 🎯 CLEAR / START കമാൻഡുകൾ നേരിട്ട് ഹാൻഡിൽ ചെയ്യുന്നു
     if (userInput.toUpperCase() === "CLEAR" || userInput === "/start") {
+      console.log("🎯 Triggering Main Menu for Chat:", chatId)
       await sendTelegramMenu(chatId, telegramToken, "📌 **MAIN MENU**\n\nSelect an operations pipeline below:")
       return new Response("OK", { headers: corsHeaders, status: 200 })
     }
 
-    // 🤖 GEMINI PROMPT
+    // 🤖 GEMINI AI CALLS
     const systemInstruction = `
       You are the absolute controller of an Enterprise Operations Bot.
       Drive the conversation, parse English/Malayalam, and decide if PENDING or COMPLETED.
-      
       MENUS:
       1. "➕ ADD NEW EMPLOYEE" -> Requires: Name, Role, Phone, Salary
       2. "📦 VENDOR EXPENSE ENTRY" -> Requires: Vendor Name, Item Name, Amount, Payment Status
-
-      Return ONLY a strict JSON object:
-      {
-        "status": "PENDING" or "COMPLETED",
-        "text": "Message for user",
-        "buttons": [[{"text": "Label", "callback_data": "DATA"}]]
-      }
+      Return ONLY strict JSON: {"status": "PENDING", "text": "msg", "buttons": []}
     `
 
     const geminiRes = await fetch(
@@ -76,11 +89,6 @@ serve(async (req: Request) => {
     )
 
     const geminiData = await geminiRes.json()
-    
-    if (!geminiData.candidates || geminiData.candidates.length === 0) {
-      throw new Error("Gemini API Error: No Response")
-    }
-
     const aiRaw = geminiData.candidates[0].content.parts[0].text.trim()
     const ui = JSON.parse(aiRaw)
 
@@ -93,7 +101,7 @@ serve(async (req: Request) => {
     return new Response("OK", { headers: corsHeaders, status: 200 })
 
   } catch (err) {
-    console.error("🚨 Critical Bot Error:", err)
+    console.error("🚨 Core Flow Error:", err)
     return new Response(JSON.stringify({ error: err.message }), {
       headers: corsHeaders,
       status: 200
