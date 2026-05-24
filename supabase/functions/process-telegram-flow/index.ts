@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 serve(async (req: Request) => {
-  // CORS ഹെഡേഴ്സ് സെറ്റ് ചെയ്യുന്നു
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -12,13 +11,13 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders, status: 200 })
   }
 
-  // 🔑 ടോക്കണുകൾ നേരിട്ട് സെറ്റ് ചെയ്യുന്നു
   const telegramToken = "8601740463:AAFZWZbWs4LGkyuKtv7svM_cJHCli7O9aTg"
-  const geminiKey = "YOUR_ACTUAL_GEMINI_API_KEY_HERE" // നിങ്ങളുടെ ഒറിജിനൽ Gemini Key ഇവിടെ നൽകുക
+  const geminiKey = "YOUR_ACTUAL_GEMINI_API_KEY_HERE" // ⚠️ ഇവിടെ നിങ്ങളുടെ ശരിക്കുള്ള Gemini API Key ഇട്ടോളൂ
 
   try {
-    // 📥 ടെലിഗ്രാമിൽ നിന്നുള്ള റിക്വസ്റ്റ് ബോഡി കൃത്യമായി എടുക്കുന്നു
     const update = await req.json()
+    
+    // 🔥 ടെലിഗ്രാമിൽ നിന്ന് ഹിറ്റ് വരുമ്പോൾ തന്നെ ഈ ലോഗ് സുപബേസിൽ കാണിക്കും!
     console.log("📥 RECEIVED FROM TELEGRAM:", JSON.stringify(update))
 
     let chatId = update.message?.chat?.id || update.callback_query?.message?.chat?.id
@@ -34,13 +33,19 @@ serve(async (req: Request) => {
       return new Response("No Chat ID", { headers: corsHeaders, status: 200 })
     }
 
-    // 🎯 CLEAR അല്ലെങ്കിൽ /start വന്നാൽ നേരിട്ട് മെയിൻ മെനു അയക്കുന്നു
+    // 🎯 CLEAR അല്ലെങ്കിൽ /start വന്നാൽ നേരിട്ട് മെയിൻ മെനു അയച്ച് ഇവിടെ വെച്ച് നിർത്തുന്നു (Return ചെയ്യുന്നു)
     if (userInput.toUpperCase() === "CLEAR" || userInput === "/start") {
+      console.log("🧹 CLEAR COMMAND DETECTED, SENDING MENU...");
       await sendTelegramMenu(chatId, telegramToken, "📌 **MAIN MENU**\n\nSelect an operations pipeline below:")
+      return new Response("OK", { headers: corsHeaders, status: 200 }) 
+    }
+
+    // 🤖 കീ മാറ്റിയിട്ടില്ലെങ്കിൽ ജെമിനി റൺ ചെയ്യാതിരിക്കാൻ ഒരു സേഫ്റ്റി ചെക്ക്
+    if (geminiKey === "YOUR_ACTUAL_GEMINI_API_KEY_HERE") {
+      await sendTelegramText(chatId, telegramToken, "⚠️ Gemini API Key സെറ്റ് ചെയ്തിട്ടില്ല. ദയവായി കോഡിൽ അപ്‌ഡേറ്റ് ചെയ്യുക.")
       return new Response("OK", { headers: corsHeaders, status: 200 })
     }
 
-    // 🤖 മറ്റെല്ലാ മെസ്സേജുകളും ജെമിനിക്ക് വിടുന്നു
     const systemInstruction = `
       You are an operations manager bot. 
       Parse the input and return ONLY a strict JSON format:
@@ -73,7 +78,7 @@ serve(async (req: Request) => {
     return new Response("OK", { headers: corsHeaders, status: 200 })
 
   } catch (err) {
-    console.error("🚨 Error occurred:", err.message)
+    console.error("🚨 Error occurred inside Function:", err.message)
     return new Response("OK", { headers: corsHeaders, status: 200 })
   }
 })
